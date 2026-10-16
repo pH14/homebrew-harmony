@@ -1,4 +1,3 @@
-require "fileutils"
 require "open3"
 require "pathname"
 require "tmpdir"
@@ -46,7 +45,9 @@ end
 
 def command(*args)
   stdout, stderr, status = Open3.capture3(*args)
-  raise "command failed: #{args.inspect}\n#{stderr}" unless status.success?
+  unless status.success?
+    raise "command failed (#{status.exitstatus}): #{args.inspect}\nstdout=#{stdout.inspect}\nstderr=#{stderr.inspect}"
+  end
 
   [stdout, stderr]
 end
@@ -58,7 +59,9 @@ Dir.mktmpdir("harmony-formula-signing-") do |directory|
   bin = prefix/"bin"
   bin.mkpath
   host = bin/"harmony-consonance-host"
-  FileUtils.cp("/usr/bin/true", host)
+  source = prefix/"host.c"
+  source.write("int main(void) { return 0; }\n")
+  command("/usr/bin/clang", source.to_s, "-o", host.to_s)
 
   HarmonyCli.new(prefix).post_install
   command("codesign", "--verify", "--strict", host.to_s)
