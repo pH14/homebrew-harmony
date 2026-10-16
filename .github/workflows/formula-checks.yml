@@ -1,0 +1,17 @@
+name: Formula checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  macos-signing:
+    name: macOS host signing
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check formula syntax
+        run: ruby -c Formula/harmony-cli.rb
+      - name: Verify installed host signing policy
+        run: ruby test/formula_signing.rb
