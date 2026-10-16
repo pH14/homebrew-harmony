@@ -10,7 +10,7 @@ end
 
 class Formula
   class << self
-    [:desc, :homepage, :version, :license, :url, :sha256, :resource, :test].each do |method|
+    [:desc, :homepage, :version, :license, :url, :sha256, :resource, :test, :depends_on].each do |method|
       define_method(method) { |*args, &block| }
     end
 

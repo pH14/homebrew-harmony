@@ -8,6 +8,8 @@ class HarmonyCli < Formula
   license "AGPL-3.0-or-later"
 
   on_macos do
+    depends_on macos: :sonoma
+
     on_arm do
       url "https://github.com/pH14/harmony/releases/download/v0.1.0/harmony-v0.1.0-aarch64-apple-darwin.tar.gz"
       sha256 "PLACEHOLDER_CLI_DARWIN_ARM64"
