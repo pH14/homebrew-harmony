@@ -1,4 +1,4 @@
-# Installs the `harmony` binary and per-ISA guest artifacts from
+# Installs the `harmony` frontend, its Consonance host, and per-ISA guest artifacts from
 # pH14/harmony release assets. The sha256 fields are filled in when the
 # release publishing those assets goes out.
 class HarmonyCli < Formula
@@ -36,7 +36,7 @@ class HarmonyCli < Formula
   end
 
   def install
-    bin.install "harmony"
+    bin.install "harmony", "harmony-consonance-host"
     # The CLI locates guest artifacts at <prefix>/share/harmony/guest/<isa>/
     # relative to its own executable path.
     guest = Hardware::CPU.arm? ? "guest-arm64" : "guest-x86_64"
@@ -46,12 +46,11 @@ class HarmonyCli < Formula
   end
 
   def post_install
-    # Hypervisor.framework requires the hypervisor entitlement; an ad-hoc
-    # signature carrying it is sufficient for locally installed binaries.
-    # Signing after install also survives brew's bottle relocation.
+    # The Consonance host checks its exact loaded signing policy before dispatch.
+    # Sign after installation so the signature covers the installed executable.
     return unless OS.mac?
 
-    entitlements = prefix/"harmony.entitlements"
+    entitlements = prefix/"harmony-consonance-host.entitlements"
     entitlements.write <<~XML
       <?xml version="1.0" encoding="UTF-8"?>
       <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -62,18 +61,38 @@ class HarmonyCli < Formula
       </dict>
       </plist>
     XML
+    library_constraint = prefix/"harmony-consonance-host.library-constraint"
+    library_constraint.write <<~XML
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>validation-category</key>
+          <integer>1</integer>
+      </dict>
+      </plist>
+    XML
     system "codesign", "--force", "--sign", "-",
-           "--entitlements", entitlements.to_s, bin/"harmony"
+           "--identifier", "org.harmony.consonance-host",
+           "--options", "runtime,hard,kill",
+           "--entitlements", entitlements.to_s,
+           "--library-constraint", library_constraint.to_s,
+           (bin/"harmony-consonance-host").to_s
   end
 
   def caveats
     <<~EOS
-      Run `harmony preflight` to see whether this host can run deterministically.
+      Run `harmony check --offline` from a project with harmony.toml to check runner admission.
       On Linux you need read-write access to /dev/kvm (kvm group).
     EOS
   end
 
   test do
-    system bin/"harmony", "--version"
+    system (bin/"harmony").to_s, "--version"
+    assert_predicate bin/"harmony-consonance-host", :executable?
+    if OS.mac?
+      system "codesign", "--verify", "--strict", (bin/"harmony-consonance-host").to_s
+      system (bin/"harmony-consonance-host").to_s, "--version"
+    end
   end
 end
